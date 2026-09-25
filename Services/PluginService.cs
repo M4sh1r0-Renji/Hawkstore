@@ -1,5 +1,7 @@
 using Ravenhawk.Models;
 using System.Diagnostics;
+using System.Reflection.Metadata;
+using System.Reflection.PortableExecutable;
 using System.Text.Json;
 
 namespace Ravenhawk.Services;
@@ -51,6 +53,11 @@ public sealed class PluginService
         }
 
         if (string.IsNullOrWhiteSpace(manifest.Name)) manifest.Name = Path.GetFileNameWithoutExtension(entryName);
+        if (string.IsNullOrWhiteSpace(manifest.PluginGuid))
+        {
+            var dll = isDirectory ? Directory.EnumerateFiles(path, "*.dll", SearchOption.AllDirectories).FirstOrDefault() : path;
+            if (dll is not null) manifest.PluginGuid = TryReadBepInExGuid(dll);
+        }
         manifest.LastUpdated ??= new DateTimeOffset(lastWriteUtc, TimeSpan.Zero);
         return new PluginItem
         {
@@ -120,6 +127,44 @@ public sealed class PluginService
                 .Sum(file => new FileInfo(file).Length);
         }
         catch { return 0; }
+    }
+
+    private static string TryReadBepInExGuid(string dllPath)
+    {
+        try
+        {
+            using var stream = File.OpenRead(dllPath);
+            using var pe = new PEReader(stream);
+            if (!pe.HasMetadata) return "";
+            var reader = pe.GetMetadataReader();
+            foreach (var handle in reader.CustomAttributes)
+            {
+                var attribute = reader.GetCustomAttribute(handle);
+                var typeName = GetAttributeTypeName(reader, attribute.Constructor);
+                if (typeName is not ("BepInPlugin" or "BepInPluginAttribute")) continue;
+                var blob = reader.GetBlobReader(attribute.Value);
+                if (blob.ReadUInt16() != 1) continue;
+                return blob.ReadSerializedString() ?? "";
+            }
+        }
+        catch { /* Invalid or native DLLs simply have no inferred plugin GUID. */ }
+        return "";
+    }
+
+    private static string GetAttributeTypeName(MetadataReader reader, EntityHandle constructor)
+    {
+        EntityHandle parent = constructor.Kind switch
+        {
+            HandleKind.MemberReference => reader.GetMemberReference((MemberReferenceHandle)constructor).Parent,
+            HandleKind.MethodDefinition => reader.GetMethodDefinition((MethodDefinitionHandle)constructor).GetDeclaringType(),
+            _ => default
+        };
+        return parent.Kind switch
+        {
+            HandleKind.TypeReference => reader.GetString(reader.GetTypeReference((TypeReferenceHandle)parent).Name),
+            HandleKind.TypeDefinition => reader.GetString(reader.GetTypeDefinition((TypeDefinitionHandle)parent).Name),
+            _ => ""
+        };
     }
 
     public static void EnsureGameNotRunning()

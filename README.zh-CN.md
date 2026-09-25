@@ -14,6 +14,8 @@ Hawkstore 是面向 Ravenfield BepInEx 5 插件的 Windows 桌面管理器。它
 - 扫描 `BepInEx/plugins` 中的顶层 DLL 和插件文件夹。
 - 在 `plugins` 与 `plugins_disabled` 之间移动项目，实现启用和禁用。
 - 以只读方式显示作者发布时填写的元数据，包括 SteamID64 和 Registry 验证状态。
+- 在插件详细页编辑匹配的 BepInEx `.cfg` 和 `.json` 配置，包括带类型的数值、布尔值、枚举和键位。
+- 从 DLL 元数据推断 BepInEx 插件 GUID，保留 CFG 注释与布局，校验声明类型和范围，并在每次保存配置前创建备份。
 - 搜索已安装插件。
 - 按更新时间、插件名称或已安装大小排序；启停插件不会重排卡片，只有主动排序或刷新才会重排。
 - 在默认英语与简体中文界面之间切换。

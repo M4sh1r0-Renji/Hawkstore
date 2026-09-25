@@ -14,6 +14,8 @@ Hawkstore is a Windows desktop manager for Ravenfield BepInEx 5 plugins. It comb
 - Scan top-level DLLs and plugin folders in `BepInEx/plugins`.
 - Enable or disable plugins by moving them between `plugins` and `plugins_disabled`.
 - Display read-only author-provided metadata, including SteamID64 and Registry verification state.
+- Edit matching BepInEx `.cfg` and `.json` values from each plugin's detail page, including typed numbers, booleans, enumerations, and key bindings.
+- Infer BepInEx plugin GUIDs directly from DLL metadata, preserve CFG comments/layout, validate declared types and ranges, and create a backup before every configuration save.
 - Search installed plugins.
 - Sort by updated time, plugin name, or installed size. Enable/disable never reorders cards until sort or refresh is requested.
 - Switch the interface between English (default) and Simplified Chinese.

@@ -103,4 +103,24 @@
   <sys:String x:Key="InvalidManifestUrl">插件清单地址无效。</sys:String>
   <sys:String x:Key="ManifestEmpty">插件清单为空。</sys:String>
   <sys:String x:Key="UnsupportedManifestVersion">不支持的插件清单版本：{0}</sys:String>
+  <sys:String x:Key="PluginDetailsTab">详细信息</sys:String>
+  <sys:String x:Key="ConfigurationTab">配置</sys:String>
+  <sys:String x:Key="ConfigFileLabel">配置文件</sys:String>
+  <sys:String x:Key="ConfigEmpty">没有找到与此插件匹配的 .cfg 或 .json 配置。请先启动一次 Ravenfield，让插件生成配置文件。</sys:String>
+  <sys:String x:Key="ConfigSaveHint">保存前会按声明类型校验数值，并自动创建备份。</sys:String>
+  <sys:String x:Key="ReloadConfig">重新加载</sys:String>
+  <sys:String x:Key="SaveConfig">保存配置</sys:String>
+  <sys:String x:Key="ConfigDefaultFormat">默认值：{0}</sys:String>
+  <sys:String x:Key="ConfigRangeFormat">范围：{0}–{1}</sys:String>
+  <sys:String x:Key="ConfigOptionsCount">{0} 个可选值</sys:String>
+  <sys:String x:Key="ConfigJsonEmpty">JSON 配置为空。</sys:String>
+  <sys:String x:Key="ConfigJsonRootUnsupported">暂不支持编辑 JSON 根节点的单一值。</sys:String>
+  <sys:String x:Key="ConfigJsonPathInvalid">编辑期间 JSON 配置结构发生了变化。</sys:String>
+  <sys:String x:Key="ConfigAllowedValuesError">{0} 必须是以下值之一：{1}</sys:String>
+  <sys:String x:Key="ConfigValueInvalid">[{0}] {1} 的值不是有效的 {2}。</sys:String>
+  <sys:String x:Key="ConfigRangeError">{0} 必须在 {1} 到 {2} 之间。</sys:String>
+  <sys:String x:Key="ConfigPathUnsafe">配置文件不在 BepInEx/config 目录内。</sys:String>
+  <sys:String x:Key="ConfigLoaded">已从 {1} 加载 {0} 个可调整项目</sys:String>
+  <sys:String x:Key="ConfigSaved">已保存 {0}。备份位置：{1}</sys:String>
+  <sys:String x:Key="ConfigLoadFailed">无法读取配置：{0}</sys:String>
 </ResourceDictionary>

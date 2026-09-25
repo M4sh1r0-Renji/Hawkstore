@@ -21,11 +21,15 @@ public partial class MainWindow : Window
     private readonly BepInExInstaller _installer = new();
     private readonly RegistryService _registryService = new();
     private readonly StoreInstaller _storeInstaller = new();
+    private readonly PluginConfigService _configService = new();
     private readonly ObservableCollection<PluginItem> _plugins = new();
     private readonly List<PluginItem> _allPlugins = new();
     private readonly ObservableCollection<StorePackageItem> _storePackages = new();
     private readonly List<StorePackageItem> _allStorePackages = new();
+    private readonly ObservableCollection<PluginConfigEntry> _configEntries = new();
+    private readonly List<PluginConfigFile> _configFiles = new();
     private PluginItem? _selected;
+    private PluginConfigFile? _selectedConfig;
     private bool _storeLoaded;
     private PluginSortMode _sortMode = PluginSortMode.Updated;
 
@@ -42,6 +46,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         PluginList.ItemsSource = _plugins;
         StoreList.ItemsSource = _storePackages;
+        ConfigEntryList.ItemsSource = _configEntries;
         GamePathBox.Text = FindInitialGameRoot();
         Loaded += (_, _) => RefreshPlugins();
     }
@@ -193,6 +198,72 @@ public partial class MainWindow : Window
         SteamVerificationBox.Text = item.SteamVerificationText;
         EntryPathText.Text = _selected.FullPath;
         EntryPathText.ToolTip = _selected.FullPath;
+        LoadPluginConfigs(item);
+    }
+
+    private void LoadPluginConfigs(PluginItem item)
+    {
+        _selectedConfig = null;
+        _configEntries.Clear();
+        _configFiles.Clear();
+        _configFiles.AddRange(_configService.FindForPlugin(GamePathBox.Text.Trim(), item));
+        ConfigFileBox.ItemsSource = null;
+        ConfigFileBox.ItemsSource = _configFiles;
+        ConfigEmptyText.Visibility = _configFiles.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        ConfigEntryList.Visibility = Visibility.Collapsed;
+        ConfigPathText.Text = "";
+        SaveConfigButton.IsEnabled = false;
+        if (_configFiles.Count > 0) ConfigFileBox.SelectedIndex = 0;
+    }
+
+    private void ConfigFileBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (ConfigFileBox.SelectedItem is not PluginConfigFile descriptor) return;
+        LoadConfigFile(descriptor.FullPath);
+    }
+
+    private void LoadConfigFile(string path)
+    {
+        try
+        {
+            _selectedConfig = _configService.Load(path);
+            _configEntries.Clear();
+            foreach (var entry in _selectedConfig.Entries) _configEntries.Add(entry);
+            ConfigPathText.Text = _selectedConfig.FullPath;
+            ConfigPathText.ToolTip = _selectedConfig.FullPath;
+            ConfigEmptyText.Visibility = _configEntries.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+            ConfigEntryList.Visibility = _configEntries.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+            SaveConfigButton.IsEnabled = _configEntries.Count > 0;
+            StatusText.Text = LocalizationService.Format("ConfigLoaded", _configEntries.Count, Path.GetFileName(path));
+        }
+        catch (Exception ex)
+        {
+            _selectedConfig = null;
+            _configEntries.Clear();
+            ConfigEntryList.Visibility = Visibility.Collapsed;
+            ConfigEmptyText.Visibility = Visibility.Visible;
+            SaveConfigButton.IsEnabled = false;
+            ShowError(LocalizationService.Format("ConfigLoadFailed", ex.Message));
+        }
+    }
+
+    private void ReloadConfigButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selectedConfig is not null) LoadConfigFile(_selectedConfig.FullPath);
+    }
+
+    private void SaveConfigButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_selectedConfig is null) return;
+        try
+        {
+            var fileName = Path.GetFileName(_selectedConfig.FullPath);
+            var path = _selectedConfig.FullPath;
+            var backup = _configService.Save(_selectedConfig, GamePathBox.Text.Trim());
+            LoadConfigFile(path);
+            StatusText.Text = LocalizationService.Format("ConfigSaved", fileName, backup);
+        }
+        catch (Exception ex) { ShowError(ex.Message); }
     }
 
     private void ShowHome()
@@ -374,6 +445,7 @@ public partial class MainWindow : Window
         LocalizationService.SetLanguage(next);
         foreach (var plugin in _allPlugins) plugin.RefreshBindings();
         foreach (var package in _allStorePackages) package.RefreshBindings();
+        ConfigEntryList.Items.Refresh();
         ApplyFilter();
         if (_storeLoaded) ApplyStoreFilter();
         UpdateBepInExState();

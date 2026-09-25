@@ -27,4 +27,7 @@ public sealed class PluginManifest
 
     [JsonPropertyName("authorSteamVerified")]
     public bool AuthorSteamVerified { get; set; }
+
+    [JsonPropertyName("guid")]
+    public string PluginGuid { get; set; } = "";
 }

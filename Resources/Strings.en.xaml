@@ -103,4 +103,24 @@
   <sys:String x:Key="InvalidManifestUrl">The plugin manifest URL is invalid.</sys:String>
   <sys:String x:Key="ManifestEmpty">The plugin manifest is empty.</sys:String>
   <sys:String x:Key="UnsupportedManifestVersion">Unsupported plugin manifest version: {0}</sys:String>
+  <sys:String x:Key="PluginDetailsTab">Details</sys:String>
+  <sys:String x:Key="ConfigurationTab">Configuration</sys:String>
+  <sys:String x:Key="ConfigFileLabel">Configuration file</sys:String>
+  <sys:String x:Key="ConfigEmpty">No matching .cfg or .json configuration was found for this plugin. Start Ravenfield once to let the plugin create its configuration.</sys:String>
+  <sys:String x:Key="ConfigSaveHint">Values are validated by their declared type. A backup is created before saving.</sys:String>
+  <sys:String x:Key="ReloadConfig">Reload</sys:String>
+  <sys:String x:Key="SaveConfig">Save configuration</sys:String>
+  <sys:String x:Key="ConfigDefaultFormat">Default: {0}</sys:String>
+  <sys:String x:Key="ConfigRangeFormat">Range: {0}–{1}</sys:String>
+  <sys:String x:Key="ConfigOptionsCount">{0} allowed values</sys:String>
+  <sys:String x:Key="ConfigJsonEmpty">The JSON configuration is empty.</sys:String>
+  <sys:String x:Key="ConfigJsonRootUnsupported">A primitive JSON root cannot be edited.</sys:String>
+  <sys:String x:Key="ConfigJsonPathInvalid">The JSON configuration structure changed while editing.</sys:String>
+  <sys:String x:Key="ConfigAllowedValuesError">{0} must be one of: {1}</sys:String>
+  <sys:String x:Key="ConfigValueInvalid">The value for [{0}] {1} is not a valid {2}.</sys:String>
+  <sys:String x:Key="ConfigRangeError">{0} must be between {1} and {2}.</sys:String>
+  <sys:String x:Key="ConfigPathUnsafe">The configuration file is outside BepInEx/config.</sys:String>
+  <sys:String x:Key="ConfigLoaded">Loaded {0} configurable values from {1}</sys:String>
+  <sys:String x:Key="ConfigSaved">Saved {0}. Backup: {1}</sys:String>
+  <sys:String x:Key="ConfigLoadFailed">Unable to read the configuration: {0}</sys:String>
 </ResourceDictionary>

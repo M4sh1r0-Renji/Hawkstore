@@ -154,7 +154,8 @@ public sealed class StoreInstaller
             LastUpdated = manifest.Release?.PublishedAt ?? DateTimeOffset.Now,
             AuthorSteamId = manifest.Author.SteamId,
             AuthorSteamVerified = manifest.Author.SteamVerification?.Provider.Equals("steam-openid", StringComparison.OrdinalIgnoreCase) == true
-                && manifest.Author.SteamVerification.Status.Equals("verified", StringComparison.OrdinalIgnoreCase)
+                && manifest.Author.SteamVerification.Status.Equals("verified", StringComparison.OrdinalIgnoreCase),
+            PluginGuid = manifest.Plugin.Guid
         };
         File.WriteAllText(Path.Combine(destination, "ravenhawk.manifest.json"), JsonSerializer.Serialize(local, JsonOptions));
     }

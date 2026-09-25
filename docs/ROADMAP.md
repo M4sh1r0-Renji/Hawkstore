@@ -6,6 +6,7 @@
 - [x] Phase 2 — read the GitHub registry and render the online browse page
 - [x] Phase 3 — download and install ZIP packages
 - [x] Phase 4 — SHA-256 verification and safe extraction
+- [x] Phase 4.1 — per-plugin CFG/JSON configuration editor with validation and backups
 - [ ] Phase 5 — version and update detection
 - [ ] Phase 6 — dependency resolution
 - [ ] Phase 7 — Steam OpenID identity and GitHub App package ownership
