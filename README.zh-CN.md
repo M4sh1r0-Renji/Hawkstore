@@ -15,6 +15,10 @@ Hawkstore 是面向 Ravenfield BepInEx 5 插件的 Windows 桌面管理器。它
 - 在 `plugins` 与 `plugins_disabled` 之间移动项目，实现启用和禁用。
 - 显示并编辑插件名称、作者、版本、游戏兼容性、更新时间和说明。
 - 搜索已安装插件。
+- 在应用内“商店”页面浏览带版本协议的 GitHub Registry。
+- 校验文件大小和 SHA-256 后安装或重新安装 ZIP 插件包。
+- 阻止不安全的压缩包路径、备份已有插件，并保留原来的启用/禁用状态。
+- 以 Dynamic Terrain Craters 1.9.0 作为首个示例订阅插件。
 - 根据窗口宽度自动切换每排一、二或三个插件卡片。
 - Ravenfield 运行时禁止安装和启停操作。
 
@@ -39,8 +43,8 @@ dotnet publish .\Hawkstore.csproj -c Release -r win-x64 --self-contained false -
 
 ## 安全模型
 
-BepInEx 插件本质上是可执行代码。商店安装功能完成后，Hawkstore 会校验包哈希，但不会宣称第三方插件绝对安全。新插件应通过 Pull Request 和自动校验进入 Registry，不允许客户端直接写入默认分支。
+BepInEx 插件本质上是可执行代码。Hawkstore 会校验文件大小和 SHA-256、阻止压缩包路径穿越并备份已有安装，但不会宣称第三方插件绝对安全。新插件应通过 Pull Request 和自动校验进入 Registry，不允许客户端直接写入默认分支。
 
 ## 当前状态
 
-本地管理器已经可用。下一阶段是实现 GitHub Registry 读取、在线浏览和经过哈希验证的安装流程。
+本地管理器和首个 GitHub 在线浏览/安装闭环已经可用。下一阶段是版本与更新检测。

@@ -8,8 +8,9 @@
         <StackPanel VerticalAlignment="Center"><TextBlock Text="Hawkstore" FontSize="38" FontWeight="Light"/><TextBlock Text="Ravenfield BepInEx Manager" FontSize="12" Foreground="{StaticResource TextSecondary}" Margin="2,1,0,0"/></StackPanel>
       </StackPanel>
       <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-        <Button x:Name="HomeButton" Style="{StaticResource ActiveNavButton}" Content="⌂  主页" Click="HomeButton_Click"/>
-        <Button x:Name="InstallButton" Style="{StaticResource NavButton}" Content="↓  安装 / 更新 BepInEx 5" Click="InstallButton_Click" MinWidth="210"/>
+        <Button x:Name="HomeButton" Style="{StaticResource ActiveNavButton}" Content="⌂  主页" Click="HomeButton_Click" MinWidth="90" Padding="12,10"/>
+        <Button x:Name="StoreButton" Style="{StaticResource NavButton}" Content="▦  商店" Click="StoreButton_Click" MinWidth="90" Padding="12,10"/>
+        <Button x:Name="InstallButton" Style="{StaticResource NavButton}" Content="↓  BepInEx 5" ToolTip="安装或更新 BepInEx 5" Click="InstallButton_Click" MinWidth="150" Padding="12,10"/>
       </StackPanel>
     </Grid>
 
@@ -40,6 +41,38 @@
                     <StackPanel><TextBlock Text="{Binding DisplayName}" FontSize="17" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding Summary}" Foreground="{StaticResource TextSecondary}" FontSize="13" Margin="0,7,0,0" TextTrimming="CharacterEllipsis"/></StackPanel>
                     <StackPanel Grid.Row="1" Margin="0,11,0,10"><TextBlock Text="{Binding Manifest.Description}" Foreground="#929292" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="38"/><TextBlock Foreground="#707070" FontSize="12" Margin="0,5,0,0"><Run Text="{Binding Kind, Mode=OneWay}"/><Run Text="  ·  支持 "/><Run Text="{Binding Manifest.SupportedGameVersion, Mode=OneWay}"/></TextBlock></StackPanel>
                     <Grid Grid.Row="2"><Button Content="详情" HorizontalAlignment="Left" Click="DetailsButton_Click"/><StackPanel HorizontalAlignment="Right" Orientation="Horizontal" VerticalAlignment="Center"><TextBlock Text="{Binding StateText}" Foreground="{StaticResource TextSecondary}" Margin="0,0,10,0" VerticalAlignment="Center"/><primitives:ToggleButton Style="{StaticResource ToggleSwitch}" IsChecked="{Binding IsEnabled, Mode=OneWay}" Click="CardToggle_Click"/></StackPanel></Grid>
+                  </Grid>
+                </Border>
+              </DataTemplate>
+            </ListBox.ItemTemplate>
+          </ListBox>
+        </Grid>
+      </Grid>
+
+      <Grid x:Name="StoreView" Visibility="Collapsed">
+        <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/></Grid.RowDefinitions>
+        <Grid Margin="0,0,0,20">
+          <StackPanel Orientation="Horizontal"><TextBlock Text="▦" FontSize="21" VerticalAlignment="Center" Margin="0,0,11,0"/><TextBlock Text="Hawkstore 商店" FontSize="23" FontWeight="SemiBold"/><TextBlock x:Name="StoreCountText" Foreground="{StaticResource TextSecondary}" FontSize="14" VerticalAlignment="Bottom" Margin="13,0,0,3"/></StackPanel>
+          <TextBlock Text="由 GitHub Registry 提供" HorizontalAlignment="Right" VerticalAlignment="Center" Foreground="{StaticResource TextSecondary}"/>
+        </Grid>
+        <Grid Grid.Row="1" Margin="0,0,0,18">
+          <Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+          <Grid><TextBox x:Name="StoreSearchBox" Height="42" Padding="39,8,12,8" TextChanged="StoreSearchBox_TextChanged"/><TextBlock Text="⌕" FontSize="22" Foreground="#B0B0B0" Margin="13,0,0,2" VerticalAlignment="Center" HorizontalAlignment="Left" IsHitTestVisible="False"/><TextBlock x:Name="StoreSearchHint" Text="搜索商店插件…" Foreground="#737373" Margin="40,0,0,0" VerticalAlignment="Center" IsHitTestVisible="False"/></Grid>
+          <Button Grid.Column="1" x:Name="StoreRefreshButton" Content="刷新商店" Height="42" Margin="10,0,0,0" Click="StoreRefreshButton_Click"/>
+        </Grid>
+        <Grid Grid.Row="2">
+          <TextBlock x:Name="StoreEmptyText" Text="商店中没有匹配的插件" FontSize="18" Foreground="{StaticResource TextSecondary}" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
+          <ListBox x:Name="StoreList" Background="Transparent" BorderThickness="0" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+            <ListBox.ItemsPanel><ItemsPanelTemplate><UniformGrid Columns="{Binding CardColumns, RelativeSource={RelativeSource AncestorType={x:Type Window}}}"/></ItemsPanelTemplate></ListBox.ItemsPanel>
+            <ListBox.ItemContainerStyle><Style TargetType="ListBoxItem"><Setter Property="HorizontalContentAlignment" Value="Stretch"/><Setter Property="VerticalContentAlignment" Value="Stretch"/><Setter Property="Padding" Value="0"/><Setter Property="Margin" Value="0,0,16,16"/><Setter Property="Background" Value="Transparent"/><Setter Property="BorderThickness" Value="0"/><Setter Property="FocusVisualStyle" Value="{x:Null}"/><Style.Triggers><Trigger Property="IsSelected" Value="True"><Setter Property="Background" Value="Transparent"/></Trigger></Style.Triggers></Style></ListBox.ItemContainerStyle>
+            <ListBox.ItemTemplate>
+              <DataTemplate DataType="{x:Type models:StorePackageItem}">
+                <Border Background="{StaticResource Surface}" BorderBrush="{StaticResource BorderBrush}" BorderThickness="1" Padding="18" MinHeight="184">
+                  <Grid>
+                    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+                    <Grid><StackPanel><TextBlock Text="{Binding Name}" FontSize="17" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/><TextBlock Text="{Binding VersionText}" Foreground="{StaticResource TextSecondary}" FontSize="13" Margin="0,7,0,0"/></StackPanel><TextBlock Text="{Binding BadgeText}" Foreground="{StaticResource Accent}" HorizontalAlignment="Right" FontSize="12"/></Grid>
+                    <StackPanel Grid.Row="1" Margin="0,12,0,12"><TextBlock Text="{Binding Description}" Foreground="#929292" TextWrapping="Wrap" TextTrimming="CharacterEllipsis" MaxHeight="58"/><TextBlock Text="{Binding CategoryText}" Foreground="#707070" FontSize="12" Margin="0,7,0,0"/><TextBlock Text="{Binding GameVersionText}" Foreground="#707070" FontSize="12" Margin="0,3,0,0"/></StackPanel>
+                    <Grid Grid.Row="2"><TextBlock Text="{Binding InstallState}" Foreground="{StaticResource TextSecondary}" VerticalAlignment="Center"/><Button Style="{StaticResource PrimaryButton}" Content="{Binding ActionText}" IsEnabled="{Binding CanInstall}" HorizontalAlignment="Right" Click="InstallStoreButton_Click" MinWidth="92"/></Grid>
                   </Grid>
                 </Border>
               </DataTemplate>

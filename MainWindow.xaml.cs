@@ -12,9 +12,14 @@ public partial class MainWindow : Window
     private const string DefaultGameRoot = @"D:\SteamLibrary\steamapps\common\Ravenfield";
     private readonly PluginService _pluginService = new();
     private readonly BepInExInstaller _installer = new();
+    private readonly RegistryService _registryService = new();
+    private readonly StoreInstaller _storeInstaller = new();
     private readonly ObservableCollection<PluginItem> _plugins = new();
     private readonly List<PluginItem> _allPlugins = new();
+    private readonly ObservableCollection<StorePackageItem> _storePackages = new();
+    private readonly List<StorePackageItem> _allStorePackages = new();
     private PluginItem? _selected;
+    private bool _storeLoaded;
 
     public static readonly DependencyProperty CardColumnsProperty = DependencyProperty.Register(
         nameof(CardColumns), typeof(int), typeof(MainWindow), new PropertyMetadata(2));
@@ -28,6 +33,7 @@ public partial class MainWindow : Window
     {
         InitializeComponent();
         PluginList.ItemsSource = _plugins;
+        StoreList.ItemsSource = _storePackages;
         GamePathBox.Text = FindInitialGameRoot();
         Loaded += (_, _) => RefreshPlugins();
     }
@@ -120,7 +126,9 @@ public partial class MainWindow : Window
     {
         _selected = item;
         HomeView.Visibility = Visibility.Collapsed;
+        StoreView.Visibility = Visibility.Collapsed;
         DetailsView.Visibility = Visibility.Visible;
+        SetNavigation(homeActive: true);
         DetailTitleText.Text = item.DisplayName;
         DetailStateText.Text = item.StateText;
         DetailToggle.IsChecked = item.IsEnabled;
@@ -137,11 +145,116 @@ public partial class MainWindow : Window
     private void ShowHome()
     {
         DetailsView.Visibility = Visibility.Collapsed;
+        StoreView.Visibility = Visibility.Collapsed;
         HomeView.Visibility = Visibility.Visible;
+        SetNavigation(homeActive: true);
     }
 
     private void HomeButton_Click(object sender, RoutedEventArgs e) => ShowHome();
     private void BackButton_Click(object sender, RoutedEventArgs e) => ShowHome();
+
+    private async void StoreButton_Click(object sender, RoutedEventArgs e)
+    {
+        ShowStore();
+        if (!_storeLoaded) await RefreshStoreAsync();
+    }
+
+    private void ShowStore()
+    {
+        HomeView.Visibility = Visibility.Collapsed;
+        DetailsView.Visibility = Visibility.Collapsed;
+        StoreView.Visibility = Visibility.Visible;
+        SetNavigation(homeActive: false);
+    }
+
+    private void SetNavigation(bool homeActive)
+    {
+        HomeButton.Style = (Style)FindResource(homeActive ? "ActiveNavButton" : "NavButton");
+        StoreButton.Style = (Style)FindResource(homeActive ? "NavButton" : "ActiveNavButton");
+    }
+
+    private async void StoreRefreshButton_Click(object sender, RoutedEventArgs e) => await RefreshStoreAsync();
+
+    private async Task RefreshStoreAsync()
+    {
+        StoreRefreshButton.IsEnabled = false;
+        try
+        {
+            StatusText.Text = "正在读取 Hawkstore Registry…";
+            var index = await _registryService.LoadIndexAsync();
+            _allStorePackages.Clear();
+            foreach (var entry in index.Packages.OrderByDescending(x => x.Featured).ThenBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase))
+            {
+                _allStorePackages.Add(new StorePackageItem
+                {
+                    Entry = entry,
+                    IsInstalled = IsStorePackageInstalled(entry.InstallDirectory)
+                });
+            }
+            _storeLoaded = true;
+            ApplyStoreFilter();
+            StatusText.Text = $"商店索引已更新，共 {_allStorePackages.Count} 个插件";
+        }
+        catch (Exception ex) { ShowError($"无法加载商店：{ex.Message}"); }
+        finally { StoreRefreshButton.IsEnabled = true; }
+    }
+
+    private void StoreSearchBox_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        StoreSearchHint.Visibility = string.IsNullOrEmpty(StoreSearchBox.Text) ? Visibility.Visible : Visibility.Collapsed;
+        if (IsLoaded) ApplyStoreFilter();
+    }
+
+    private void ApplyStoreFilter()
+    {
+        var query = StoreSearchBox?.Text.Trim() ?? "";
+        var matches = string.IsNullOrWhiteSpace(query)
+            ? _allStorePackages
+            : _allStorePackages.Where(x =>
+                x.Name.Contains(query, StringComparison.CurrentCultureIgnoreCase) ||
+                x.Author.Contains(query, StringComparison.CurrentCultureIgnoreCase) ||
+                x.Description.Contains(query, StringComparison.CurrentCultureIgnoreCase) ||
+                x.CategoryText.Contains(query, StringComparison.CurrentCultureIgnoreCase)).ToList();
+
+        _storePackages.Clear();
+        foreach (var package in matches) _storePackages.Add(package);
+        StoreCountText.Text = string.IsNullOrWhiteSpace(query) ? $"{_allStorePackages.Count} 项" : $"{_storePackages.Count} / {_allStorePackages.Count} 项";
+        StoreEmptyText.Visibility = _storePackages.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        StoreList.Visibility = _storePackages.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
+    }
+
+    private bool IsStorePackageInstalled(string installDirectory)
+    {
+        if (string.IsNullOrWhiteSpace(installDirectory) || Path.GetFileName(installDirectory) != installDirectory) return false;
+        var bepinExRoot = Path.Combine(GamePathBox.Text.Trim(), "BepInEx");
+        return Directory.Exists(Path.Combine(bepinExRoot, "plugins", installDirectory)) ||
+               Directory.Exists(Path.Combine(bepinExRoot, "plugins_disabled", installDirectory));
+    }
+
+    private async void InstallStoreButton_Click(object sender, RoutedEventArgs e)
+    {
+        var package = (sender as FrameworkElement)?.DataContext as StorePackageItem;
+        if (package is null || package.IsInstalling) return;
+
+        package.IsInstalling = true;
+        try
+        {
+            var progress = new Progress<string>(message => StatusText.Text = message);
+            var manifest = await _registryService.LoadManifestAsync(package.Entry.ManifestUrl);
+            if (!manifest.Id.Equals(package.Id, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("商店索引与插件清单 ID 不一致。");
+            await _storeInstaller.InstallAsync(manifest, GamePathBox.Text.Trim(), progress);
+
+            _allPlugins.Clear();
+            _allPlugins.AddRange(_pluginService.Scan(GamePathBox.Text.Trim()));
+            ApplyFilter();
+            UpdateBepInExState();
+            package.IsInstalled = true;
+            MessageBox.Show(this, $"{manifest.Name} {manifest.Version} 已安装。\n\n插件将在下次启动 Ravenfield 时加载。", "安装完成", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex) { ShowError(ex.Message); }
+        finally { package.IsInstalling = false; }
+    }
 
     private void SaveButton_Click(object sender, RoutedEventArgs e)
     {
