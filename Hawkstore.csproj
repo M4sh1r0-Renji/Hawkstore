@@ -10,9 +10,9 @@
     <ApplicationIcon>Assets\hawkstore.ico</ApplicationIcon>
     <Product>Hawkstore</Product>
     <Description>Ravenfield BepInEx plugin manager</Description>
-    <Version>0.4.0</Version>
-    <AssemblyVersion>0.4.0.0</AssemblyVersion>
-    <FileVersion>0.4.0.0</FileVersion>
+    <Version>0.5.0</Version>
+    <AssemblyVersion>0.5.0.0</AssemblyVersion>
+    <FileVersion>0.5.0.0</FileVersion>
   </PropertyGroup>
   <ItemGroup>
     <Resource Include="Assets\hawkstore-icon.png" />

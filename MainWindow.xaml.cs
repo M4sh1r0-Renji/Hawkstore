@@ -2,6 +2,7 @@ using Microsoft.Win32;
 using Ravenhawk.Models;
 using Ravenhawk.Services;
 using System.Collections.ObjectModel;
+using System.Diagnostics;
 using System.Windows;
 using System.Windows.Controls;
 
@@ -22,16 +23,22 @@ public partial class MainWindow : Window
     private readonly RegistryService _registryService = new();
     private readonly StoreInstaller _storeInstaller = new();
     private readonly PluginConfigService _configService = new();
+    private readonly PublisherProjectStore _publisherStore = new();
+    private readonly SteamIdentityService _steamIdentityService = new();
+    private readonly GitHubPublisherService _githubPublisher = new();
     private readonly ObservableCollection<PluginItem> _plugins = new();
     private readonly List<PluginItem> _allPlugins = new();
     private readonly ObservableCollection<StorePackageItem> _storePackages = new();
     private readonly List<StorePackageItem> _allStorePackages = new();
     private readonly ObservableCollection<PluginConfigEntry> _configEntries = new();
     private readonly List<PluginConfigFile> _configFiles = new();
+    private readonly ObservableCollection<PublisherProject> _publisherProjects = new();
     private PluginItem? _selected;
     private PluginConfigFile? _selectedConfig;
     private bool _storeLoaded;
     private PluginSortMode _sortMode = PluginSortMode.Updated;
+    private PublisherProject? _publisherProject;
+    private bool _publisherBusy;
 
     public static readonly DependencyProperty CardColumnsProperty = DependencyProperty.Register(
         nameof(CardColumns), typeof(int), typeof(MainWindow), new PropertyMetadata(2));
@@ -47,6 +54,8 @@ public partial class MainWindow : Window
         PluginList.ItemsSource = _plugins;
         StoreList.ItemsSource = _storePackages;
         ConfigEntryList.ItemsSource = _configEntries;
+        foreach (var project in _publisherStore.Load()) _publisherProjects.Add(project);
+        PublisherProjectBox.ItemsSource = _publisherProjects;
         GamePathBox.Text = FindInitialGameRoot();
         Loaded += (_, _) => RefreshPlugins();
     }
@@ -182,6 +191,7 @@ public partial class MainWindow : Window
         _selected = item;
         HomeView.Visibility = Visibility.Collapsed;
         StoreView.Visibility = Visibility.Collapsed;
+        PublisherView.Visibility = Visibility.Collapsed;
         DetailsView.Visibility = Visibility.Visible;
         SetNavigation(homeActive: true);
         DetailTitleText.Text = item.DisplayName;
@@ -270,6 +280,7 @@ public partial class MainWindow : Window
     {
         DetailsView.Visibility = Visibility.Collapsed;
         StoreView.Visibility = Visibility.Collapsed;
+        PublisherView.Visibility = Visibility.Collapsed;
         HomeView.Visibility = Visibility.Visible;
         SetNavigation(homeActive: true);
     }
@@ -287,6 +298,7 @@ public partial class MainWindow : Window
     {
         HomeView.Visibility = Visibility.Collapsed;
         DetailsView.Visibility = Visibility.Collapsed;
+        PublisherView.Visibility = Visibility.Collapsed;
         StoreView.Visibility = Visibility.Visible;
         SetNavigation(homeActive: false);
     }
@@ -452,5 +464,241 @@ public partial class MainWindow : Window
         UpdateSortButtonText();
         StatusText.Text = LocalizationService.Get("Ready");
         if (_selected is not null && DetailsView.Visibility == Visibility.Visible) ShowDetails(_selected);
+        if (PublisherView.Visibility == Visibility.Visible) BindPublisherProject(_publisherProject);
+    }
+
+    private void PlayButton_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            if (Process.GetProcessesByName("ravenfield").Length > 0)
+            {
+                StatusText.Text = LocalizationService.Get("GameAlreadyRunning");
+                return;
+            }
+
+            var root = GamePathBox.Text.Trim();
+            var executable = Path.Combine(root, "Ravenfield.exe");
+            if (!File.Exists(executable)) throw new FileNotFoundException(LocalizationService.Get("GameExecutableMissing"), executable);
+            Process.Start(new ProcessStartInfo(executable) { WorkingDirectory = root, UseShellExecute = true });
+            StatusText.Text = LocalizationService.Get("GameStarted");
+        }
+        catch (Exception ex) { ShowError(ex.Message); }
+    }
+
+    private void PublishBubbleButton_Click(object sender, RoutedEventArgs e) => ShowPublisher();
+    private void PublisherBackButton_Click(object sender, RoutedEventArgs e) => ShowStore();
+
+    private void ShowPublisher()
+    {
+        HomeView.Visibility = Visibility.Collapsed;
+        StoreView.Visibility = Visibility.Collapsed;
+        DetailsView.Visibility = Visibility.Collapsed;
+        PublisherView.Visibility = Visibility.Visible;
+        SetNavigation(homeActive: false);
+        if (_publisherProjects.Count == 0) CreatePublisherProject();
+        else if (_publisherProject is null) PublisherProjectBox.SelectedIndex = 0;
+        else BindPublisherProject(_publisherProject);
+    }
+
+    private void CreatePublisherProject()
+    {
+        var identity = _steamIdentityService.FindCurrent();
+        var project = new PublisherProject
+        {
+            AuthorName = identity?.PersonaName ?? "",
+            SteamId = identity?.SteamId ?? ""
+        };
+        _publisherProjects.Add(project);
+        PublisherProjectBox.SelectedItem = project;
+        SavePublisherProjects();
+    }
+
+    private void PublisherProjectBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        _publisherProject = PublisherProjectBox.SelectedItem as PublisherProject;
+        BindPublisherProject(_publisherProject);
+    }
+
+    private void NewPublisherProjectButton_Click(object sender, RoutedEventArgs e) => CreatePublisherProject();
+
+    private void BindPublisherProject(PublisherProject? project)
+    {
+        if (project is null) return;
+        _publisherProject = project;
+        PublisherIdBox.Text = project.Id;
+        PublisherNameBox.Text = project.Name;
+        PublisherVersionBox.Text = project.Version;
+        PublisherAuthorBox.Text = project.AuthorName;
+        PublisherSteamIdBox.Text = project.SteamId;
+        VerifySteamButton.Content = LocalizationService.Get(project.SteamVerified ? "SteamVerified" : "VerifySteam");
+        PublisherGameVersionBox.Text = project.GameVersion;
+        PublisherCategoriesBox.Text = project.Categories;
+        PublisherGuidBox.Text = project.PluginGuid;
+        PublisherInstallDirectoryBox.Text = project.InstallDirectory;
+        PublisherEntryDllBox.Text = project.EntryDll;
+        PublisherDescriptionBox.Text = project.Description;
+        PublisherSourceFileBox.Text = project.SourceFile;
+        PublisherInfoText.Text = project.Published
+            ? $"https://github.com/{project.RepositoryFullName}"
+            : LocalizationService.Get("PublisherSecurityNote");
+        GitHubAccountText.Text = _githubPublisher.IsConnected
+            ? LocalizationService.Format("GitHubConnected", _githubPublisher.Login)
+            : LocalizationService.Get("GitHubNotConnected");
+        UpdatePublisherButtons();
+    }
+
+    private void ReadPublisherForm(PublisherProject project)
+    {
+        project.Id = PublisherIdBox.Text.Trim();
+        project.Name = PublisherNameBox.Text.Trim();
+        project.Version = PublisherVersionBox.Text.Trim();
+        project.AuthorName = PublisherAuthorBox.Text.Trim();
+        project.SteamId = PublisherSteamIdBox.Text.Trim();
+        project.GameVersion = PublisherGameVersionBox.Text.Trim();
+        project.Categories = PublisherCategoriesBox.Text.Trim();
+        project.PluginGuid = PublisherGuidBox.Text.Trim();
+        project.InstallDirectory = PublisherInstallDirectoryBox.Text.Trim();
+        project.EntryDll = PublisherEntryDllBox.Text.Trim();
+        project.Description = PublisherDescriptionBox.Text.Trim();
+        project.SourceFile = PublisherSourceFileBox.Text.Trim();
+    }
+
+    private void SavePublisherProjects()
+    {
+        _publisherStore.Save(_publisherProjects);
+        PublisherProjectBox.Items.Refresh();
+    }
+
+    private void SavePublisherDraftButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_publisherProject is null) return;
+        ReadPublisherForm(_publisherProject);
+        SavePublisherProjects();
+        StatusText.Text = LocalizationService.Get("DraftSaved");
+    }
+
+    private void PublisherBrowseFileButton_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new OpenFileDialog
+        {
+            Title = LocalizationService.Get("ChooseFile"),
+            Filter = "Plugin packages (*.zip;*.dll)|*.zip;*.dll|ZIP files (*.zip)|*.zip|DLL files (*.dll)|*.dll"
+        };
+        if (dialog.ShowDialog(this) == true) PublisherSourceFileBox.Text = dialog.FileName;
+    }
+
+    private async void ConnectGitHubButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_publisherBusy) return;
+        SetPublisherBusy(true);
+        try
+        {
+            StatusText.Text = LocalizationService.Get("PublisherConnecting");
+            await _githubPublisher.ConnectAsync(info => Dispatcher.Invoke(() =>
+            {
+                Clipboard.SetText(info.UserCode);
+                PublisherInfoText.Text = LocalizationService.Format("PublisherDeviceCode", info.UserCode, info.VerificationUri);
+            }));
+            GitHubAccountText.Text = LocalizationService.Format("GitHubConnected", _githubPublisher.Login);
+            StatusText.Text = GitHubAccountText.Text;
+        }
+        catch (Exception ex) { ShowError(ex.Message); }
+        finally { SetPublisherBusy(false); }
+    }
+
+    private async void VerifySteamButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_publisherProject is null || _publisherBusy) return;
+        SetPublisherBusy(true);
+        try
+        {
+            StatusText.Text = LocalizationService.Get("SteamVerificationWaiting");
+            var identity = await _steamIdentityService.VerifyWithSteamAsync();
+            _publisherProject.SteamId = identity.SteamId;
+            _publisherProject.SteamVerified = true;
+            _publisherProject.SteamVerifiedAt = DateTimeOffset.UtcNow;
+            if (!string.IsNullOrWhiteSpace(identity.PersonaName)) _publisherProject.AuthorName = identity.PersonaName;
+            SavePublisherProjects();
+            BindPublisherProject(_publisherProject);
+            StatusText.Text = LocalizationService.Get("SteamVerifiedStatus");
+        }
+        catch (OperationCanceledException) { ShowError(LocalizationService.Get("SteamVerificationTimeout")); }
+        catch (Exception ex) { ShowError(ex.Message); }
+        finally { SetPublisherBusy(false); }
+    }
+
+    private async void PublishModButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_publisherProject is null || _publisherBusy) return;
+        ReadPublisherForm(_publisherProject);
+        SavePublisherProjects();
+        SetPublisherBusy(true);
+        try
+        {
+            var progress = new Progress<string>(message => StatusText.Text = message);
+            var result = await _githubPublisher.PublishAsync(_publisherProject, progress);
+            SavePublisherProjects();
+            BindPublisherProject(_publisherProject);
+            StatusText.Text = LocalizationService.Format("PublisherPublished", result.SubmissionUrl);
+            PublisherInfoText.Text = StatusText.Text;
+        }
+        catch (Exception ex) { ShowError(ex.Message); }
+        finally { SetPublisherBusy(false); }
+    }
+
+    private async void UpdateModButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_publisherProject is null || _publisherBusy) return;
+        ReadPublisherForm(_publisherProject);
+        SetPublisherBusy(true);
+        try
+        {
+            await _githubPublisher.UpdateMetadataAsync(_publisherProject);
+            SavePublisherProjects();
+            BindPublisherProject(_publisherProject);
+            StatusText.Text = LocalizationService.Get("PublisherUpdated");
+        }
+        catch (Exception ex) { ShowError(ex.Message); }
+        finally { SetPublisherBusy(false); }
+    }
+
+    private async void DeleteModButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (_publisherProject is null || _publisherBusy) return;
+        if (MessageBox.Show(this, LocalizationService.Get("PublisherDeleteConfirm"), LocalizationService.Get("PublisherDeleteTitle"),
+                MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+        var deleting = _publisherProject;
+        SetPublisherBusy(true);
+        try
+        {
+            if (deleting.Published) await _githubPublisher.UnpublishAsync(deleting);
+            _publisherProjects.Remove(deleting);
+            _publisherProject = null;
+            SavePublisherProjects();
+            if (_publisherProjects.Count == 0) CreatePublisherProject();
+            else PublisherProjectBox.SelectedIndex = 0;
+            StatusText.Text = LocalizationService.Get("PublisherDeleted");
+        }
+        catch (Exception ex) { ShowError(ex.Message); }
+        finally { SetPublisherBusy(false); }
+    }
+
+    private void SetPublisherBusy(bool busy)
+    {
+        _publisherBusy = busy;
+        ConnectGitHubButton.IsEnabled = !busy;
+        VerifySteamButton.IsEnabled = !busy;
+        PublisherProjectBox.IsEnabled = !busy;
+        UpdatePublisherButtons();
+    }
+
+    private void UpdatePublisherButtons()
+    {
+        var hasProject = _publisherProject is not null;
+        var published = _publisherProject?.Published == true;
+        PublishModButton.IsEnabled = !_publisherBusy && hasProject && !published && _githubPublisher.IsConnected && _publisherProject?.SteamVerified == true;
+        UpdateModButton.IsEnabled = !_publisherBusy && published && _githubPublisher.IsConnected;
+        DeleteModButton.IsEnabled = !_publisherBusy && hasProject && (!published || _githubPublisher.IsConnected);
     }
 }

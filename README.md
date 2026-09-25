@@ -25,6 +25,11 @@ Hawkstore is a Windows desktop manager for Ravenfield BepInEx 5 plugins. It comb
 - Includes Dynamic Terrain Craters 1.9.0 as the first sample subscription package.
 - Compact responsive one-, two-, or three-column card layout.
 - Block install and enable/disable operations while Ravenfield is running.
+- Launch Ravenfield from the main toolbar.
+- Create publisher drafts with metadata populated from the current Steam account and verify the author's SteamID64 through Steam OpenID.
+- Connect GitHub through OAuth Device Flow without asking for a personal access token.
+- Package a DLL automatically or upload an existing ZIP to a public GitHub Release, then open a Registry review request.
+- Update published metadata and descriptions, or withdraw a submission and delete its Release while retaining the source repository.
 
 ## Build
 
@@ -47,8 +52,8 @@ See [Architecture](docs/ARCHITECTURE.md) and [Roadmap](docs/ROADMAP.md).
 
 ## Security model
 
-BepInEx plugins are executable code. Hawkstore verifies package size and SHA-256, rejects archive path traversal, and backs up an existing installation, but it never claims that third-party plugins are completely safe. New packages should enter the registry through pull requests and automated validation, not direct writes to the default branch.
+BepInEx plugins are executable code. Hawkstore verifies package size and SHA-256, rejects archive path traversal, and backs up an existing installation, but it never claims that third-party plugins are completely safe. Publisher authorization is held in memory for the current session only. New packages are submitted as Registry review issues and never write directly to the Registry default branch.
 
 ## Status
 
-The local manager and first GitHub-backed browse/install workflow are working. Version/update detection is the next implementation milestone.
+The local manager, GitHub-backed browse/install workflow, configuration editor, game launcher, and author publishing workflow are working. Registry maintainers still review submissions before they become visible in the Store.
