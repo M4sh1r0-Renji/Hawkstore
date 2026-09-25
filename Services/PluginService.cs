@@ -18,7 +18,7 @@ public sealed class PluginService
         var result = new List<PluginItem>();
         AddEntries(result, enabledRoot, true);
         AddEntries(result, disabledRoot, false);
-        return result.OrderByDescending(x => x.IsEnabled).ThenBy(x => x.DisplayName, StringComparer.CurrentCultureIgnoreCase).ToList();
+        return result;
     }
 
     private static void AddEntries(List<PluginItem> target, string root, bool enabled)
@@ -51,12 +51,16 @@ public sealed class PluginService
         }
 
         if (string.IsNullOrWhiteSpace(manifest.Name)) manifest.Name = Path.GetFileNameWithoutExtension(entryName);
-        if (string.IsNullOrWhiteSpace(manifest.Author)) manifest.Author = "未知作者";
-        if (string.IsNullOrWhiteSpace(manifest.Version)) manifest.Version = "未知";
-        if (string.IsNullOrWhiteSpace(manifest.SupportedGameVersion)) manifest.SupportedGameVersion = "未填写";
-        if (string.IsNullOrWhiteSpace(manifest.Description)) manifest.Description = "暂无说明";
         manifest.LastUpdated ??= new DateTimeOffset(lastWriteUtc, TimeSpan.Zero);
-        return new PluginItem { FullPath = path, EntryName = entryName, IsDirectory = isDirectory, IsEnabled = enabled, Manifest = manifest };
+        return new PluginItem
+        {
+            FullPath = path,
+            EntryName = entryName,
+            IsDirectory = isDirectory,
+            IsEnabled = enabled,
+            SizeBytes = CalculateSize(path, isDirectory),
+            Manifest = manifest
+        };
     }
 
     private static PluginManifest InferManifest(string path, string entryName, bool isDirectory, DateTime lastWriteUtc)
@@ -81,15 +85,6 @@ public sealed class PluginService
         return manifest;
     }
 
-    public void SaveManifest(PluginItem item, PluginManifest manifest)
-    {
-        manifest.LastUpdated = DateTimeOffset.Now;
-        var path = GetManifestPath(item.FullPath, item.IsDirectory);
-        File.WriteAllText(path, JsonSerializer.Serialize(manifest, JsonOptions));
-        item.Manifest = manifest;
-        item.RefreshBindings();
-    }
-
     public string Toggle(PluginItem item, string gameRoot)
     {
         EnsureGameNotRunning();
@@ -97,7 +92,7 @@ public sealed class PluginService
         Directory.CreateDirectory(targetRoot);
         var target = Path.Combine(targetRoot, item.EntryName);
         if (Directory.Exists(target) || File.Exists(target))
-            throw new IOException($"目标位置已存在同名项目：{target}");
+            throw new IOException(LocalizationService.Format("TargetExistsError", target));
 
         if (item.IsDirectory)
         {
@@ -116,9 +111,20 @@ public sealed class PluginService
     private static string GetManifestPath(string itemPath, bool isDirectory) =>
         isDirectory ? Path.Combine(itemPath, "ravenhawk.manifest.json") : itemPath + ".ravenhawk.json";
 
+    private static long CalculateSize(string path, bool isDirectory)
+    {
+        try
+        {
+            if (!isDirectory) return new FileInfo(path).Length;
+            return Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories)
+                .Sum(file => new FileInfo(file).Length);
+        }
+        catch { return 0; }
+    }
+
     public static void EnsureGameNotRunning()
     {
         if (Process.GetProcessesByName("ravenfield").Length > 0)
-            throw new InvalidOperationException("Ravenfield 正在运行。请先关闭游戏，再更改插件或安装 BepInEx。");
+            throw new InvalidOperationException(LocalizationService.Get("GameRunningError"));
     }
 }

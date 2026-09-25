@@ -13,13 +13,15 @@ Hawkstore is a Windows desktop manager for Ravenfield BepInEx 5 plugins. It comb
 - Back up files before a BepInEx upgrade.
 - Scan top-level DLLs and plugin folders in `BepInEx/plugins`.
 - Enable or disable plugins by moving them between `plugins` and `plugins_disabled`.
-- Read and edit plugin name, author, version, game compatibility, update time, and description.
+- Display read-only author-provided metadata, including SteamID64 and Registry verification state.
 - Search installed plugins.
+- Sort by updated time, plugin name, or installed size. Enable/disable never reorders cards until sort or refresh is requested.
+- Switch the interface between English (default) and Simplified Chinese.
 - Browse the versioned GitHub registry from the in-app Store page.
 - Install or reinstall ZIP packages with size and SHA-256 verification.
 - Reject unsafe archive paths, back up the existing plugin, and preserve its enabled/disabled state.
 - Includes Dynamic Terrain Craters 1.9.0 as the first sample subscription package.
-- Responsive one-, two-, or three-column card layout.
+- Compact responsive one-, two-, or three-column card layout.
 - Block install and enable/disable operations while Ravenfield is running.
 
 ## Build

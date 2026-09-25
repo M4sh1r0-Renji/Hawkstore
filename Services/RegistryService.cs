@@ -15,19 +15,19 @@ public sealed class RegistryService
     {
         await using var stream = await Client.GetStreamAsync(DefaultIndexUrl, cancellationToken);
         var index = await JsonSerializer.DeserializeAsync<StoreIndex>(stream, JsonOptions, cancellationToken)
-            ?? throw new InvalidDataException("商店索引为空。");
-        if (index.SchemaVersion != 1) throw new InvalidDataException($"不支持的商店索引版本：{index.SchemaVersion}");
+            ?? throw new InvalidDataException(LocalizationService.Get("RegistryEmpty"));
+        if (index.SchemaVersion != 1) throw new InvalidDataException(LocalizationService.Format("UnsupportedIndexVersion", index.SchemaVersion));
         return index;
     }
 
     public async Task<StorePackageManifest> LoadManifestAsync(string url, CancellationToken cancellationToken = default)
     {
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme != Uri.UriSchemeHttps)
-            throw new InvalidDataException("插件清单地址无效。");
+            throw new InvalidDataException(LocalizationService.Get("InvalidManifestUrl"));
         await using var stream = await Client.GetStreamAsync(uri, cancellationToken);
         var manifest = await JsonSerializer.DeserializeAsync<StorePackageManifest>(stream, JsonOptions, cancellationToken)
-            ?? throw new InvalidDataException("插件清单为空。");
-        if (manifest.SchemaVersion != 1) throw new InvalidDataException($"不支持的插件清单版本：{manifest.SchemaVersion}");
+            ?? throw new InvalidDataException(LocalizationService.Get("ManifestEmpty"));
+        if (manifest.SchemaVersion != 1) throw new InvalidDataException(LocalizationService.Format("UnsupportedManifestVersion", manifest.SchemaVersion));
         return manifest;
     }
 

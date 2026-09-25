@@ -1,6 +1,7 @@
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Text.Json.Serialization;
+using Ravenhawk.Services;
 
 namespace Ravenhawk.Models;
 
@@ -83,6 +84,24 @@ public sealed class StoreAuthor
 {
     [JsonPropertyName("name")]
     public string Name { get; set; } = "";
+
+    [JsonPropertyName("steamId")]
+    public string SteamId { get; set; } = "";
+
+    [JsonPropertyName("steamVerification")]
+    public StoreSteamVerification? SteamVerification { get; set; }
+}
+
+public sealed class StoreSteamVerification
+{
+    [JsonPropertyName("provider")]
+    public string Provider { get; set; } = "";
+
+    [JsonPropertyName("status")]
+    public string Status { get; set; } = "";
+
+    [JsonPropertyName("verifiedAt")]
+    public DateTimeOffset? VerifiedAt { get; set; }
 }
 
 public sealed class StoreGame
@@ -130,10 +149,10 @@ public sealed class StorePackageItem : INotifyPropertyChanged
     public string Description => Entry.Description;
     public string VersionText => $"v{Entry.LatestVersion}  ·  {Entry.Author}";
     public string CategoryText => string.Join("  ·  ", Entry.Categories);
-    public string GameVersionText => $"支持 {string.Join(", ", Entry.GameVersions)}";
-    public string BadgeText => Entry.Featured ? "示例订阅" : "";
-    public string InstallState => IsInstalled ? "已安装" : "未安装";
-    public string ActionText => IsInstalling ? "安装中…" : IsInstalled ? "重新安装" : "安装";
+    public string GameVersionText => LocalizationService.Format("SupportsFormat", string.Join(", ", Entry.GameVersions));
+    public string BadgeText => Entry.Featured ? LocalizationService.Get("FeaturedBadge") : "";
+    public string InstallState => LocalizationService.Get(IsInstalled ? "Installed" : "NotInstalled");
+    public string ActionText => LocalizationService.Get(IsInstalling ? "Installing" : IsInstalled ? "Reinstall" : "Install");
     public bool CanInstall => !IsInstalling;
 
     public bool IsInstalled
@@ -163,5 +182,12 @@ public sealed class StorePackageItem : INotifyPropertyChanged
     }
 
     public event PropertyChangedEventHandler? PropertyChanged;
+    public void RefreshBindings()
+    {
+        OnPropertyChanged(nameof(GameVersionText));
+        OnPropertyChanged(nameof(BadgeText));
+        OnPropertyChanged(nameof(InstallState));
+        OnPropertyChanged(nameof(ActionText));
+    }
     private void OnPropertyChanged([CallerMemberName] string? name = null) => PropertyChanged?.Invoke(this, new(name));
 }

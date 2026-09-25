@@ -21,4 +21,10 @@ public sealed class PluginManifest
 
     [JsonPropertyName("lastUpdated")]
     public DateTimeOffset? LastUpdated { get; set; }
+
+    [JsonPropertyName("authorSteamId")]
+    public string AuthorSteamId { get; set; } = "";
+
+    [JsonPropertyName("authorSteamVerified")]
+    public bool AuthorSteamVerified { get; set; }
 }

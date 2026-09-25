@@ -19,7 +19,7 @@ public sealed class BepInExInstaller
     {
         PluginService.EnsureGameNotRunning();
         ValidateGameRoot(gameRoot);
-        progress?.Report("正在查询 BepInEx 官方 GitHub 发布页…");
+        progress?.Report(LocalizationService.Get("BepQuery"));
 
         using var response = await _http.GetAsync("https://api.github.com/repos/BepInEx/BepInEx/releases?per_page=30", cancellationToken);
         response.EnsureSuccessStatusCode();
@@ -29,21 +29,21 @@ public sealed class BepInExInstaller
         var release = document.RootElement.EnumerateArray().FirstOrDefault(x =>
             !x.GetProperty("draft").GetBoolean() &&
             x.GetProperty("tag_name").GetString()?.StartsWith("v5.", StringComparison.OrdinalIgnoreCase) == true);
-        if (release.ValueKind == JsonValueKind.Undefined) throw new InvalidOperationException("没有找到 BepInEx 5 的正式版本。");
+        if (release.ValueKind == JsonValueKind.Undefined) throw new InvalidOperationException(LocalizationService.Get("BepNoRelease"));
 
         var architecture = DetectArchitecture(gameRoot);
         var marker = architecture == "x86" ? "win_x86" : "win_x64";
         var asset = release.GetProperty("assets").EnumerateArray().FirstOrDefault(x =>
             x.GetProperty("name").GetString()?.Contains(marker, StringComparison.OrdinalIgnoreCase) == true &&
             x.GetProperty("name").GetString()?.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) == true);
-        if (asset.ValueKind == JsonValueKind.Undefined) throw new InvalidOperationException($"发布中没有找到 {marker} 安装包。");
+        if (asset.ValueKind == JsonValueKind.Undefined) throw new InvalidOperationException(LocalizationService.Format("BepNoAsset", marker));
 
         var version = release.GetProperty("tag_name").GetString() ?? "v5";
         var url = asset.GetProperty("browser_download_url").GetString()!;
         var tempFile = Path.Combine(Path.GetTempPath(), $"Hawkstore-BepInEx-{Guid.NewGuid():N}.zip");
         try
         {
-            progress?.Report($"正在下载 {version} ({architecture})…");
+            progress?.Report(LocalizationService.Format("BepDownloading", version, architecture));
             using (var download = await _http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead, cancellationToken))
             {
                 download.EnsureSuccessStatusCode();
@@ -52,10 +52,10 @@ public sealed class BepInExInstaller
                 await input.CopyToAsync(output, cancellationToken);
             }
 
-            progress?.Report("正在备份将被覆盖的文件并安装…");
+            progress?.Report(LocalizationService.Get("BepInstalling"));
             ExtractWithBackup(tempFile, gameRoot);
             File.WriteAllText(Path.Combine(gameRoot, "BepInEx", "hawkstore-bepinex-version.txt"), version);
-            progress?.Report($"BepInEx {version} 安装完成。首次启动游戏后会生成配置和日志。");
+            progress?.Report(LocalizationService.Format("BepComplete", version));
             return version;
         }
         finally
@@ -66,9 +66,9 @@ public sealed class BepInExInstaller
 
     private static void ValidateGameRoot(string root)
     {
-        if (!Directory.Exists(root)) throw new DirectoryNotFoundException("Ravenfield 目录不存在。");
+        if (!Directory.Exists(root)) throw new DirectoryNotFoundException(LocalizationService.Get("GameDirectoryMissing"));
         if (!Directory.EnumerateFiles(root, "ravenfield*.exe", SearchOption.TopDirectoryOnly).Any())
-            throw new InvalidOperationException("所选目录中没有找到 Ravenfield 可执行文件。");
+            throw new InvalidOperationException(LocalizationService.Get("GameExecutableMissing"));
     }
 
     private static string DetectArchitecture(string root)
@@ -94,7 +94,7 @@ public sealed class BepInExInstaller
         {
             var destination = Path.GetFullPath(Path.Combine(gameRoot, entry.FullName));
             if (!destination.StartsWith(rootFull, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidDataException("安装包包含不安全的路径，安装已中止。");
+                throw new InvalidDataException(LocalizationService.Get("UnsafeBepArchive"));
             if (string.IsNullOrEmpty(entry.Name)) { Directory.CreateDirectory(destination); continue; }
 
             Directory.CreateDirectory(Path.GetDirectoryName(destination)!);

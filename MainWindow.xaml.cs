@@ -7,6 +7,13 @@ using System.Windows.Controls;
 
 namespace Ravenhawk;
 
+public enum PluginSortMode
+{
+    Updated,
+    Name,
+    Size
+}
+
 public partial class MainWindow : Window
 {
     private const string DefaultGameRoot = @"D:\SteamLibrary\steamapps\common\Ravenfield";
@@ -20,6 +27,7 @@ public partial class MainWindow : Window
     private readonly List<StorePackageItem> _allStorePackages = new();
     private PluginItem? _selected;
     private bool _storeLoaded;
+    private PluginSortMode _sortMode = PluginSortMode.Updated;
 
     public static readonly DependencyProperty CardColumnsProperty = DependencyProperty.Register(
         nameof(CardColumns), typeof(int), typeof(MainWindow), new PropertyMetadata(2));
@@ -43,7 +51,7 @@ public partial class MainWindow : Window
         CardColumns = CalculateCardColumns(e.NewSize.Width);
     }
 
-    public static int CalculateCardColumns(double width) => width < 900 ? 1 : width < 1500 ? 2 : 3;
+    public static int CalculateCardColumns(double width) => width < 820 ? 1 : width < 1120 ? 2 : 3;
 
     private static string FindInitialGameRoot()
     {
@@ -63,9 +71,10 @@ public partial class MainWindow : Window
         {
             _allPlugins.Clear();
             _allPlugins.AddRange(_pluginService.Scan(GamePathBox.Text.Trim()));
+            SortPlugins();
             ApplyFilter();
             UpdateBepInExState();
-            StatusText.Text = $"已扫描 {_allPlugins.Count} 个本地插件项目";
+            StatusText.Text = LocalizationService.Format("ScannedStatus", _allPlugins.Count);
             _selected = null;
             ShowHome();
         }
@@ -84,7 +93,9 @@ public partial class MainWindow : Window
 
         _plugins.Clear();
         foreach (var plugin in matches) _plugins.Add(plugin);
-        PluginCountText.Text = string.IsNullOrWhiteSpace(query) ? $"{_allPlugins.Count} 项" : $"{_plugins.Count} / {_allPlugins.Count} 项";
+        PluginCountText.Text = string.IsNullOrWhiteSpace(query)
+            ? LocalizationService.Format("ItemCount", _allPlugins.Count)
+            : LocalizationService.Format("FilteredCount", _plugins.Count, _allPlugins.Count);
         EmptyListText.Visibility = _plugins.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         PluginList.Visibility = _plugins.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
     }
@@ -97,17 +108,56 @@ public partial class MainWindow : Window
         var core = Path.Combine(root, "BepInEx", "core", "BepInEx.dll");
         if (File.Exists(marker)) BepInExStateText.Text = $"BepInEx {File.ReadAllText(marker).Trim()}";
         else if (File.Exists(legacyMarker)) BepInExStateText.Text = $"BepInEx {File.ReadAllText(legacyMarker).Trim()}";
-        else if (File.Exists(core)) BepInExStateText.Text = "BepInEx 5 已安装";
-        else BepInExStateText.Text = "未检测到 BepInEx 5";
+        else if (File.Exists(core)) BepInExStateText.Text = LocalizationService.Get("BepInExInstalled");
+        else BepInExStateText.Text = LocalizationService.Get("BepInExMissing");
     }
 
     private void BrowseButton_Click(object sender, RoutedEventArgs e)
     {
-        var dialog = new OpenFolderDialog { Title = "选择 Ravenfield 游戏根目录", InitialDirectory = Directory.Exists(GamePathBox.Text) ? GamePathBox.Text : null };
+        var dialog = new OpenFolderDialog { Title = LocalizationService.Get("ChooseGameFolderTitle"), InitialDirectory = Directory.Exists(GamePathBox.Text) ? GamePathBox.Text : null };
         if (dialog.ShowDialog(this) == true) { GamePathBox.Text = dialog.FolderName; RefreshPlugins(); }
     }
 
     private void RefreshButton_Click(object sender, RoutedEventArgs e) => RefreshPlugins();
+
+    private void SortButton_Click(object sender, RoutedEventArgs e)
+    {
+        if (SortButton.ContextMenu is null) return;
+        SortButton.ContextMenu.PlacementTarget = SortButton;
+        SortButton.ContextMenu.IsOpen = true;
+    }
+
+    private void SortOption_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not MenuItem { Tag: string tag } || !Enum.TryParse(tag, out PluginSortMode mode)) return;
+        _sortMode = mode;
+        SortPlugins();
+        ApplyFilter();
+        UpdateSortButtonText();
+    }
+
+    private void SortPlugins()
+    {
+        IOrderedEnumerable<PluginItem> sorted = _sortMode switch
+        {
+            PluginSortMode.Name => _allPlugins.OrderBy(x => x.DisplayName, StringComparer.CurrentCultureIgnoreCase),
+            PluginSortMode.Size => _allPlugins.OrderByDescending(x => x.SizeBytes),
+            _ => _allPlugins.OrderByDescending(x => x.UpdatedAt)
+        };
+        var snapshot = sorted.ThenBy(x => x.DisplayName, StringComparer.CurrentCultureIgnoreCase).ToList();
+        _allPlugins.Clear();
+        _allPlugins.AddRange(snapshot);
+    }
+
+    private void UpdateSortButtonText()
+    {
+        SortButton.Content = LocalizationService.Get(_sortMode switch
+        {
+            PluginSortMode.Name => "SortNameButton",
+            PluginSortMode.Size => "SortSizeButton",
+            _ => "SortUpdatedButton"
+        });
+    }
 
     private void SearchBox_TextChanged(object sender, TextChangedEventArgs e)
     {
@@ -132,12 +182,15 @@ public partial class MainWindow : Window
         DetailTitleText.Text = item.DisplayName;
         DetailStateText.Text = item.StateText;
         DetailToggle.IsChecked = item.IsEnabled;
-        NameBox.Text = _selected.Manifest.Name;
-        AuthorBox.Text = _selected.Manifest.Author;
-        VersionBox.Text = _selected.Manifest.Version;
-        GameVersionBox.Text = _selected.Manifest.SupportedGameVersion;
-        DescriptionBox.Text = _selected.Manifest.Description;
+        NameBox.Text = item.DisplayName;
+        AuthorBox.Text = item.AuthorText;
+        VersionBox.Text = item.VersionText;
+        GameVersionBox.Text = item.GameVersionText;
+        DescriptionBox.Text = item.DescriptionText;
         UpdatedBox.Text = _selected.UpdatedText;
+        SizeBox.Text = item.SizeText;
+        SteamIdBox.Text = item.SteamIdText;
+        SteamVerificationBox.Text = item.SteamVerificationText;
         EntryPathText.Text = _selected.FullPath;
         EntryPathText.ToolTip = _selected.FullPath;
     }
@@ -180,7 +233,7 @@ public partial class MainWindow : Window
         StoreRefreshButton.IsEnabled = false;
         try
         {
-            StatusText.Text = "正在读取 Hawkstore Registry…";
+            StatusText.Text = LocalizationService.Get("RegistryLoading");
             var index = await _registryService.LoadIndexAsync();
             _allStorePackages.Clear();
             foreach (var entry in index.Packages.OrderByDescending(x => x.Featured).ThenBy(x => x.Name, StringComparer.CurrentCultureIgnoreCase))
@@ -193,9 +246,9 @@ public partial class MainWindow : Window
             }
             _storeLoaded = true;
             ApplyStoreFilter();
-            StatusText.Text = $"商店索引已更新，共 {_allStorePackages.Count} 个插件";
+            StatusText.Text = LocalizationService.Format("StoreUpdated", _allStorePackages.Count);
         }
-        catch (Exception ex) { ShowError($"无法加载商店：{ex.Message}"); }
+        catch (Exception ex) { ShowError(LocalizationService.Format("StoreLoadFailed", ex.Message)); }
         finally { StoreRefreshButton.IsEnabled = true; }
     }
 
@@ -218,7 +271,9 @@ public partial class MainWindow : Window
 
         _storePackages.Clear();
         foreach (var package in matches) _storePackages.Add(package);
-        StoreCountText.Text = string.IsNullOrWhiteSpace(query) ? $"{_allStorePackages.Count} 项" : $"{_storePackages.Count} / {_allStorePackages.Count} 项";
+        StoreCountText.Text = string.IsNullOrWhiteSpace(query)
+            ? LocalizationService.Format("ItemCount", _allStorePackages.Count)
+            : LocalizationService.Format("FilteredCount", _storePackages.Count, _allStorePackages.Count);
         StoreEmptyText.Visibility = _storePackages.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
         StoreList.Visibility = _storePackages.Count == 0 ? Visibility.Collapsed : Visibility.Visible;
     }
@@ -242,37 +297,19 @@ public partial class MainWindow : Window
             var progress = new Progress<string>(message => StatusText.Text = message);
             var manifest = await _registryService.LoadManifestAsync(package.Entry.ManifestUrl);
             if (!manifest.Id.Equals(package.Id, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidDataException("商店索引与插件清单 ID 不一致。");
+                throw new InvalidDataException(LocalizationService.Get("RegistryIdMismatch"));
             await _storeInstaller.InstallAsync(manifest, GamePathBox.Text.Trim(), progress);
 
             _allPlugins.Clear();
             _allPlugins.AddRange(_pluginService.Scan(GamePathBox.Text.Trim()));
+            SortPlugins();
             ApplyFilter();
             UpdateBepInExState();
             package.IsInstalled = true;
-            MessageBox.Show(this, $"{manifest.Name} {manifest.Version} 已安装。\n\n插件将在下次启动 Ravenfield 时加载。", "安装完成", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(this, LocalizationService.Format("PluginInstalledMessage", manifest.Name, manifest.Version), LocalizationService.Get("InstallCompleteTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex) { ShowError(ex.Message); }
         finally { package.IsInstalling = false; }
-    }
-
-    private void SaveButton_Click(object sender, RoutedEventArgs e)
-    {
-        if (_selected is null) return;
-        try
-        {
-            var manifest = new PluginManifest
-            {
-                Name = NameBox.Text.Trim(), Author = AuthorBox.Text.Trim(), Version = VersionBox.Text.Trim(),
-                SupportedGameVersion = GameVersionBox.Text.Trim(), Description = DescriptionBox.Text.Trim()
-            };
-            _pluginService.SaveManifest(_selected, manifest);
-            UpdatedBox.Text = _selected.UpdatedText;
-            DetailTitleText.Text = _selected.DisplayName;
-            PluginList.Items.Refresh();
-            StatusText.Text = $"已保存 {_selected.DisplayName} 的详细信息";
-        }
-        catch (Exception ex) { ShowError(ex.Message); }
     }
 
     private void CardToggle_Click(object sender, RoutedEventArgs e)
@@ -294,18 +331,19 @@ public partial class MainWindow : Window
         try
         {
             var name = item.DisplayName;
-            var entryName = item.EntryName;
             var enabling = !item.IsEnabled;
-            _pluginService.Toggle(item, GamePathBox.Text.Trim());
-            RefreshPlugins();
-            StatusText.Text = $"已{(enabling ? "启用" : "禁用")} {name}";
-            if (reopenDetails)
-            {
-                var refreshed = _allPlugins.FirstOrDefault(x => x.EntryName.Equals(entryName, StringComparison.OrdinalIgnoreCase));
-                if (refreshed is not null) ShowDetails(refreshed);
-            }
+            item.FullPath = _pluginService.Toggle(item, GamePathBox.Text.Trim());
+            item.IsEnabled = enabling;
+            item.RefreshBindings();
+            StatusText.Text = LocalizationService.Format(enabling ? "PluginEnabledStatus" : "PluginDisabledStatus", name);
+            if (reopenDetails) ShowDetails(item);
         }
-        catch (Exception ex) { ShowError(ex.Message); }
+        catch (Exception ex)
+        {
+            item.RefreshBindings();
+            if (reopenDetails) DetailToggle.IsChecked = item.IsEnabled;
+            ShowError(ex.Message);
+        }
     }
 
     private async void InstallButton_Click(object sender, RoutedEventArgs e)
@@ -315,7 +353,7 @@ public partial class MainWindow : Window
         {
             var progress = new Progress<string>(message => StatusText.Text = message);
             var version = await _installer.InstallLatestV5Async(GamePathBox.Text.Trim(), progress);
-            MessageBox.Show(this, $"BepInEx {version} 已安装到 Ravenfield。\n\n如果这是首次安装，请启动并退出一次游戏，让 BepInEx 生成配置文件。", "安装完成", MessageBoxButton.OK, MessageBoxImage.Information);
+            MessageBox.Show(this, LocalizationService.Format("BepInExInstalledMessage", version), LocalizationService.Get("InstallCompleteTitle"), MessageBoxButton.OK, MessageBoxImage.Information);
             RefreshPlugins();
         }
         catch (Exception ex) { ShowError(ex.Message); }
@@ -326,5 +364,21 @@ public partial class MainWindow : Window
     {
         StatusText.Text = message;
         MessageBox.Show(this, message, "Hawkstore", MessageBoxButton.OK, MessageBoxImage.Error);
+    }
+
+    private void LanguageButton_Click(object sender, RoutedEventArgs e)
+    {
+        var next = LocalizationService.Current == AppLanguage.English
+            ? AppLanguage.SimplifiedChinese
+            : AppLanguage.English;
+        LocalizationService.SetLanguage(next);
+        foreach (var plugin in _allPlugins) plugin.RefreshBindings();
+        foreach (var package in _allStorePackages) package.RefreshBindings();
+        ApplyFilter();
+        if (_storeLoaded) ApplyStoreFilter();
+        UpdateBepInExState();
+        UpdateSortButtonText();
+        StatusText.Text = LocalizationService.Get("Ready");
+        if (_selected is not null && DetailsView.Visibility == Visibility.Visible) ShowDetails(_selected);
     }
 }

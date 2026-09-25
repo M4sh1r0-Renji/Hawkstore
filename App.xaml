@@ -4,6 +4,10 @@
              xmlns:primitives="clr-namespace:System.Windows.Controls.Primitives;assembly=PresentationFramework"
              StartupUri="MainWindow.xaml">
   <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="/Hawkstore;component/Resources/Strings.en.xaml"/>
+      </ResourceDictionary.MergedDictionaries>
     <SolidColorBrush x:Key="PageBackground" Color="#1C1C1C"/>
     <SolidColorBrush x:Key="Surface" Color="#151515"/>
     <SolidColorBrush x:Key="SurfaceRaised" Color="#202020"/>
@@ -29,5 +33,6 @@
       <Setter Property="Width" Value="48"/><Setter Property="Height" Value="26"/><Setter Property="Cursor" Value="Hand"/>
       <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="primitives:ToggleButton"><Border x:Name="Track" CornerRadius="13" Background="#505050" BorderBrush="#5D5D5D" BorderThickness="1"><Ellipse x:Name="Thumb" Width="20" Height="20" Fill="#F7F7F7" HorizontalAlignment="Left" Margin="2"/></Border><ControlTemplate.Triggers><Trigger Property="IsChecked" Value="True"><Setter TargetName="Track" Property="Background" Value="{StaticResource Accent}"/><Setter TargetName="Track" Property="BorderBrush" Value="{StaticResource Accent}"/><Setter TargetName="Thumb" Property="HorizontalAlignment" Value="Right"/></Trigger><Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Track" Property="Opacity" Value="0.88"/></Trigger><Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.45"/></Trigger></ControlTemplate.Triggers></ControlTemplate></Setter.Value></Setter>
     </Style>
+    </ResourceDictionary>
   </Application.Resources>
 </Application>
