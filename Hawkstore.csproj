@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <AssemblyName>Hawkstore</AssemblyName>
+    <RootNamespace>Ravenhawk</RootNamespace>
+    <ApplicationIcon>Assets\hawkstore.ico</ApplicationIcon>
+    <Product>Hawkstore</Product>
+    <Description>Ravenfield BepInEx plugin manager</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <Resource Include="Assets\hawkstore-icon.png" />
+    <Resource Include="Assets\hawkstore.ico" />
+  </ItemGroup>
+</Project>
